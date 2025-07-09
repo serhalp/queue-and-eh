@@ -1,5 +1,6 @@
 export const useSSE = (eventId: string) => {
   const questions = ref<any[]>([])
+  const presence = ref<{ total: number; countries: Record<string, { count: number; name: string }> }>({ total: 0, countries: {} })
   const isConnected = ref(false)
   const error = ref<string | null>(null)
   
@@ -16,7 +17,20 @@ export const useSSE = (eventId: string) => {
       // Close existing connection
       disconnect()
       
-      const url = `/_netlify/sse/questions?eventId=${encodeURIComponent(eventId)}`
+      // Get user ID from localStorage (should be set by the app)
+      let userId = localStorage.getItem('qa-user-id')
+      if (!userId) {
+        userId = crypto.randomUUID()
+        localStorage.setItem('qa-user-id', userId)
+      }
+      
+      // Get country from geo data
+      const geo = useGeo()
+      const country = geo.value?.country || 'unknown'
+      const countryName = geo.value?.countryName || 'Unknown'
+      
+      const url = `/sse?eventId=${encodeURIComponent(eventId)}&userId=${encodeURIComponent(userId)}&country=${encodeURIComponent(country)}&countryName=${encodeURIComponent(countryName)}`
+      console.log('[useSSE] Connecting with:', { eventId, userId, country })
       eventSource = new EventSource(url)
       
       eventSource.onopen = () => {
@@ -26,20 +40,37 @@ export const useSSE = (eventId: string) => {
         reconnectAttempts = 0
       }
       
-      eventSource.onmessage = (event) => {
+      // Handle questions events
+      eventSource.addEventListener('questions', (event) => {
         try {
           const data = JSON.parse(event.data)
           if (data.success && data.questions) {
             questions.value = data.questions
+            console.log('[useSSE] Updated questions:', data.questions.length)
           } else if (!data.success) {
-            console.error('SSE error:', data.error)
+            console.error('SSE questions error:', data.error)
             error.value = data.error
           }
         } catch (err) {
-          console.error('Error parsing SSE data:', err)
-          error.value = 'Failed to parse server data'
+          console.error('Error parsing SSE questions data:', err)
+          error.value = 'Failed to parse questions data'
         }
-      }
+      })
+      
+      // Handle presence events
+      eventSource.addEventListener('presence', (event) => {
+        try {
+          const data = JSON.parse(event.data)
+          if (data.success && data.presence) {
+            presence.value = data.presence
+            console.log('[useSSE] Updated presence:', data.presence)
+          } else if (!data.success) {
+            console.error('SSE presence error:', data.error)
+          }
+        } catch (err) {
+          console.error('Error parsing SSE presence data:', err)
+        }
+      })
       
       eventSource.onerror = (event) => {
         console.error('SSE connection error:', event)
@@ -102,6 +133,7 @@ export const useSSE = (eventId: string) => {
   
   return {
     questions: readonly(questions),
+    presence: readonly(presence),
     isConnected: readonly(isConnected),
     error: readonly(error),
     connect,
