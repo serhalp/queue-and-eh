@@ -1,32 +1,13 @@
-import { getStore, getDeployStore } from '@netlify/blobs'
+import type { Question } from '../../types/shared'
+import { getBlobStore, QUESTIONS_KEY, getQuestions as sharedGetQuestions } from '../../utils/shared-storage'
 
-export interface Question {
-  id: string
-  text: string
-  votes: number
-  createdAt: string
-  votedBy: string[]
-  authorId: string
-}
+// Re-export for backward compatibility
+export type { Question }
 
 interface QuestionsWithETag {
   questions: Question[]
   etag: string | null
 }
-
-// Helper to get event-specific key
-const getEventKey = (eventId: string, type: 'questions' | 'event') => `${type}-${eventId}`
-
-// Get the appropriate blob store based on environment
-function getBlobStore(eventId: string) {
-  // Use global store for production, deploy store for development/preview
-  if (process.env.CONTEXT === 'production') {
-    return getStore({ name: getEventKey(eventId, 'questions'), consistency: 'strong' })
-  }
-  return getDeployStore({ name: getEventKey(eventId, 'questions'), consistency: 'strong' })
-}
-
-const QUESTIONS_KEY = (eventId: string) => getEventKey(eventId, 'questions')
 const MAX_RETRIES = 5
 const RETRY_DELAY = 100 // ms
 
@@ -75,8 +56,7 @@ const atomicWrite = async (eventId: string, questions: Question[], etag: string 
 
 export const getQuestions = async (eventId: string): Promise<Question[]> => {
   try {
-    const { questions } = await getQuestionsWithETag(eventId)
-    return questions
+    return sharedGetQuestions(eventId)
   } catch (error) {
     console.error('Error getting questions:', error)
     return []
@@ -84,16 +64,23 @@ export const getQuestions = async (eventId: string): Promise<Question[]> => {
 }
 
 export const addQuestion = async (eventId: string, question: Question): Promise<void> => {
+  console.log(`[addQuestion] Starting to add question ${question.id} to eventId: ${eventId}`);
   let retryCount = 0
   
   while (retryCount < MAX_RETRIES) {
     try {
+      console.log(`[addQuestion] Attempt ${retryCount + 1} - Getting current questions`);
       const { questions, etag } = await getQuestionsWithETag(eventId)
+      console.log(`[addQuestion] Current questions count: ${questions.length}, etag: ${etag}`);
       const updatedQuestions = [...questions, question]
+      console.log(`[addQuestion] Updated questions count: ${updatedQuestions.length}`);
       
+      console.log(`[addQuestion] Calling atomicWrite`);
       const wasModified = await atomicWrite(eventId, updatedQuestions, etag)
+      console.log(`[addQuestion] atomicWrite result: ${wasModified}`);
       
       if (wasModified) {
+        console.log(`[addQuestion] Successfully added question ${question.id}`);
         return // Success! The write went through
       }
       

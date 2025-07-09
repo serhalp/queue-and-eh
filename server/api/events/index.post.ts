@@ -5,7 +5,11 @@ export default defineEventHandler(async (event) => {
     const body = await readBody(event)
     const { title, description } = body
 
+    console.log(`[POST events] Creating new event with title: ${title}`);
+    console.log(`[POST events] Description:`, description?.substring(0, 100));
+
     if (!title || typeof title !== 'string') {
+      console.log('[POST events] Missing or invalid title');
       throw createError({
         statusCode: 400,
         statusMessage: 'Title is required'
@@ -14,6 +18,7 @@ export default defineEventHandler(async (event) => {
 
     // Generate a unique event ID
     const eventId = crypto.randomUUID()
+    console.log(`[POST events] Generated eventId: ${eventId}`);
     
     const newEvent: Event = {
       id: eventId,
@@ -22,7 +27,12 @@ export default defineEventHandler(async (event) => {
       createdAt: new Date().toISOString()
     }
 
+    console.log(`[POST events] Calling createEvent for eventId: ${eventId}`);
     await createEvent(newEvent)
+    console.log(`[POST events] Successfully created event: ${eventId}`);
+    console.log(`[POST events] Event title: ${newEvent.title}`);
+    console.log(`[POST events] Event description: ${newEvent.description}`);
+    console.log(`[POST events] Event createdAt: ${newEvent.createdAt}`);
 
     return {
       success: true,

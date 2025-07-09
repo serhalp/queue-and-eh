@@ -16,11 +16,9 @@ export default defineNuxtConfig({
   ],
   css: ['~/assets/css/main.css'],
   vite: {
-    $server: {
-      plugins: [
-        netlify(),
-      ],
-    },
+    plugins: [
+      netlify(),
+    ],
   },
   nitro: {
     experimental: {

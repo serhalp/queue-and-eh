@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@netlify/blobs": "^10.0.4",
+    "@netlify/edge-functions": "^2.15.6",
     "@nuxtjs/tailwindcss": "^6.12.1",
     "@pinia/nuxt": "^0.5.5",
     "nuxt": "^3.17.6",

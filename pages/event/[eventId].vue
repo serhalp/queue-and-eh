@@ -146,19 +146,26 @@
 const route = useRoute()
 const eventId = route.params.eventId
 
-// State
+// Use SSE for real-time updates
+const { questions: sseQuestions, isConnected, error: sseError } = useSSE(eventId)
+
+// Reactive state
 const event = ref(null)
 const questions = ref([])
 const newQuestion = ref('')
 const isSubmitting = ref(false)
-const isConnected = ref(false)
 const isLoading = ref(true)
 const eventNotFound = ref(false)
-
-// User ID for voting (stored in localStorage)
 const userId = ref('')
-// Track questions created by this user
 const userCreatedQuestions = ref(new Set())
+const linkCopied = ref(false)
+
+// Watch SSE questions and update local state
+watch(sseQuestions, (newQuestions) => {
+  if (newQuestions && newQuestions.length >= 0) {
+    questions.value = newQuestions
+  }
+}, { immediate: true })
 
 // Computed
 const sortedQuestions = computed(() => {
@@ -195,18 +202,7 @@ const loadEvent = async () => {
   }
 }
 
-const loadQuestions = async () => {
-  try {
-    const response = await $fetch(`/api/events/${eventId}/questions`)
-    if (response.success) {
-      questions.value = response.questions
-      isConnected.value = true
-    }
-  } catch (error) {
-    console.error('Error loading questions:', error)
-    isConnected.value = false
-  }
-}
+
 
 const submitQuestion = async () => {
   if (!newQuestion.value.trim()) return
@@ -231,7 +227,7 @@ const submitQuestion = async () => {
       localStorage.setItem('qa-user-questions', JSON.stringify(storedQuestions))
       
       newQuestion.value = ''
-      await loadQuestions() // Refresh questions
+      // Questions will be updated automatically via SSE
     }
   } catch (error) {
     console.error('Error submitting question:', error)
@@ -312,17 +308,8 @@ onMounted(() => {
   const storedQuestions = JSON.parse(localStorage.getItem('qa-user-questions') || '[]')
   userCreatedQuestions.value = new Set(storedQuestions)
   
-  // Load initial data
+  // Load initial event data (questions come via SSE)
   loadEvent()
-  loadQuestions()
-  
-  // Set up polling for live updates
-  const pollInterval = setInterval(loadQuestions, 2000)
-  
-  // Cleanup on unmount
-  onUnmounted(() => {
-    clearInterval(pollInterval)
-  })
 })
 
 // Set page title
