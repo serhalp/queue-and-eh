@@ -19,28 +19,14 @@ export const getEventKey = (eventId: string, type: "questions" | "event") =>
 
 // Get the appropriate blob store based on environment - works in both Deno and Node.js
 export function getBlobStore(eventId: string) {
-  // Check environment context (works in both Deno and Node.js)
-  const context =
-    typeof Netlify !== "undefined"
-      ? Netlify.env.get("CONTEXT")
-      : process.env.CONTEXT;
-
   const storeName = getEventKey(eventId, "questions");
 
-  console.log(
-    `[getBlobStore] eventId: ${eventId}, context: ${context}, storeName: ${storeName}`
-  );
-
   // Use global store for production, deploy store for development/preview
-  if (context === "production") {
-    console.log("[getBlobStore] ✅ Using global store for production");
+  if (process.env.CONTEXT === "production") {
     const store = getStore(storeName);
-    console.log(`[getBlobStore] Created global store: ${storeName}`);
     return store;
   }
-  console.log("[getBlobStore] ✅ Using deploy store for development");
-  const store = getDeployStore({ name: storeName, region: "us-east-2" });
-  console.log(`[getBlobStore] Created deploy store: ${storeName} in us-east-2`);
+  const store = getDeployStore(storeName);
   return store;
 }
 

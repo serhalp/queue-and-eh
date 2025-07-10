@@ -93,44 +93,22 @@
             <p>No questions yet. Be the first to ask something!</p>
           </div>
 
-          <div v-for="question in sortedQuestions" :key="question.id" :class="[
-            'card hover:shadow-md transition-shadow',
-            question.isPending ? 'opacity-75 bg-gray-50' : ''
-          ]">
+          <div v-for="question in sortedQuestions" :key="question.id" class="card hover:shadow-md transition-shadow">
             <div class="flex items-start justify-between">
               <div class="flex-1">
-                <div class="flex items-start space-x-2">
-                  <p class="text-gray-900 mb-3 flex-1">{{ question.text }}</p>
-                  <div v-if="question.isPending" class="flex items-center text-xs text-gray-500 mt-1">
-                    <svg class="animate-spin -ml-1 mr-1 h-3 w-3 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    <span>Sending...</span>
-                  </div>
-                </div>
+                <p class="text-gray-900 mb-3">{{ question.text }}</p>
                 <div class="flex items-center text-sm text-gray-500">
                   <span>{{ formatTimeAgo(new Date(question.createdAt)) }}</span>
-                  <span v-if="question.isPending" class="ml-2 text-xs text-amber-600">• Pending</span>
                 </div>
               </div>
               <div class="flex items-center ml-4">
-                <!-- Pending questions show a disabled state -->
-                <div v-if="question.isPending" class="flex items-center space-x-2 px-3 py-2 rounded-lg bg-gray-100 text-gray-400">
-                  <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M3.293 9.707a1 1 0 010-1.414l6-6a1 1 0 011.414 0l6 6a1 1 0 01-1.414 1.414L11 5.414V17a1 1 0 11-2 0V5.414L4.707 9.707a1 1 0 01-1.414 0z" clip-rule="evenodd" />
-                  </svg>
-                  <span class="font-medium">{{ question.votes }}</span>
-                </div>
-                <!-- Own questions -->
-                <div v-else-if="isOwnQuestion(question)" class="flex items-center space-x-2 px-3 py-2 rounded-lg bg-gray-50 text-gray-500">
+                <div v-if="isOwnQuestion(question)" class="flex items-center space-x-2 px-3 py-2 rounded-lg bg-gray-50 text-gray-500">
                   <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                     <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
                   </svg>
                   <span class="font-medium">{{ question.votes }}</span>
                   <span class="text-xs">(Your question)</span>
                 </div>
-                <!-- Votable questions -->
                 <button
                   v-else
                   @click="toggleVote(question.id)"
@@ -164,8 +142,7 @@ const { questions: sseQuestions, presence, isConnected, error: sseError } = useS
 
 // Reactive state
 const event = ref(null)
-const sseQuestionsData = ref([]) // Server questions from SSE
-const optimisticQuestions = ref([]) // Questions added optimistically
+const questions = ref([])
 const newQuestion = ref('')
 const isSubmitting = ref(false)
 const isLoading = ref(true)
@@ -174,30 +151,12 @@ const userId = ref('')
 const userCreatedQuestions = ref(new Set())
 const linkCopied = ref(false)
 
-// Watch SSE questions and update server state
+// Watch SSE questions and update local state
 watch(sseQuestions, (newQuestions) => {
   if (newQuestions && newQuestions.length >= 0) {
-    sseQuestionsData.value = newQuestions
-    // Remove optimistic questions that are now confirmed by server
-    // Match by text and authorId since server questions will have different IDs
-    optimisticQuestions.value = optimisticQuestions.value.filter(optimistic => {
-      const isConfirmed = newQuestions.some(server => 
-        server.text === optimistic.text && 
-        server.authorId === optimistic.authorId &&
-        // Only remove if server question is recent (within last 30 seconds)
-        new Date(server.createdAt).getTime() > (Date.now() - 30000)
-      )
-      return !isConfirmed
-    })
+    questions.value = newQuestions
   }
 }, { immediate: true })
-
-// Combined questions: server questions + optimistic questions
-const questions = computed(() => {
-  const serverQuestions = sseQuestionsData.value || []
-  const pending = optimisticQuestions.value || []
-  return [...serverQuestions, ...pending]
-})
 
 // Computed
 const sortedQuestions = computed(() => {
@@ -241,29 +200,11 @@ const submitQuestion = async () => {
   
   isSubmitting.value = true
   
-  // Create optimistic question immediately
-  const optimisticQuestion = {
-    id: `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-    text: newQuestion.value.trim(),
-    authorId: userId.value,
-    votes: 0,
-    votedBy: [],
-    createdAt: new Date().toISOString(),
-    isPending: true // Mark as optimistic/pending
-  }
-  
-  // Add to optimistic questions immediately for instant UI feedback
-  optimisticQuestions.value = [...optimisticQuestions.value, optimisticQuestion]
-  
-  // Clear the input immediately
-  const questionText = newQuestion.value
-  newQuestion.value = ''
-  
   try {
     const response = await $fetch(`/api/events/${eventId}/questions`, {
       method: 'POST',
       body: { 
-        text: questionText,
+        text: newQuestion.value,
         authorId: userId.value
       }
     })
@@ -276,20 +217,11 @@ const submitQuestion = async () => {
       storedQuestions.push(response.question.id)
       localStorage.setItem('qa-user-questions', JSON.stringify(storedQuestions))
       
-      // Don't remove optimistic question here - let SSE watcher handle it
-      // This prevents the disappearing/reappearing issue
-      
-      // Set a fallback timeout to clean up if SSE doesn't confirm within 10 seconds
-      setTimeout(() => {
-        optimisticQuestions.value = optimisticQuestions.value.filter(q => q.id !== optimisticQuestion.id)
-      }, 10000)
+      newQuestion.value = ''
+      // Questions will be updated automatically via SSE
     }
   } catch (error) {
     console.error('Error submitting question:', error)
-    // Remove the failed optimistic question
-    optimisticQuestions.value = optimisticQuestions.value.filter(q => q.id !== optimisticQuestion.id)
-    // Restore the question text so user can retry
-    newQuestion.value = questionText
     alert('Failed to submit question. Please try again.')
   } finally {
     isSubmitting.value = false

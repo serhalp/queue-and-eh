@@ -2,7 +2,6 @@ import type { Context } from "@netlify/edge-functions";
 import {
   getBlobStore,
   getQuestions,
-  QUESTIONS_KEY,
   // @ts-expect-error TODO(serhalp): configure ts separately for edge functions (deno)
 } from "../../utils/shared-storage.ts";
 
@@ -247,8 +246,11 @@ export default async (request: Request, context: Context) => {
         }
       };
 
-      // Send initial update
-      sendUpdate();
+      // Send initial keepalive immediately to establish connection
+      controller.enqueue(new TextEncoder().encode("data: {\"type\":\"connected\"}\n\n"));
+      
+      // Send initial update after a brief delay
+      setTimeout(sendUpdate, 100);
 
       // Set up interval for periodic updates
       intervalId = setInterval(sendUpdate, 2000);
