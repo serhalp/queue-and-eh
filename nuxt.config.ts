@@ -8,7 +8,7 @@ export default defineNuxtConfig({
   experimental: {
     sharedPrerenderData: false,
   },
-  modules: ["@nuxtjs/tailwindcss", "@pinia/nuxt"],
+  modules: ["@nuxtjs/tailwindcss", "@pinia/nuxt", "@netlify/nuxt"],
   css: ["~/assets/css/main.css"],
   nitro: {
     experimental: {
