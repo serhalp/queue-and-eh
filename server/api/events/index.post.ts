@@ -1,4 +1,4 @@
-import { createEvent, type Event } from '~/server/utils/storage'
+import { initializeEvent, type Event } from '~/server/utils/storage'
 
 export default defineEventHandler(async (event) => {
   try {
@@ -27,8 +27,8 @@ export default defineEventHandler(async (event) => {
       createdAt: new Date().toISOString()
     }
 
-    console.log(`[POST events] Calling createEvent for eventId: ${eventId}`);
-    await createEvent(newEvent)
+    console.log(`[POST events] Calling initializeEvent for eventId: ${eventId}`);
+    await initializeEvent(newEvent)
     console.log(`[POST events] Successfully created event: ${eventId}`);
     console.log(`[POST events] Event title: ${newEvent.title}`);
     console.log(`[POST events] Event description: ${newEvent.description}`);

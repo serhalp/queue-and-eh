@@ -2,8 +2,6 @@
 import type { Question } from "../types/shared";
 import { getStore, getDeployStore } from "@netlify/blobs";
 
-// Re-export types
-export type { Question };
 
 // Event management types
 export interface Event {
@@ -288,7 +286,7 @@ export interface Event {
   createdAt: string;
 }
 
-export const createEvent = async (event: Event): Promise<void> => {
+export const initializeEvent = async (event: Event): Promise<void> => {
   const store = getBlobStore(event.id);
 
   // Initialize empty questions array for this event
