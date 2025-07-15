@@ -1,0 +1,47 @@
+# Queue & Eh - Live Q&A Application
+
+## Development Commands
+- `npm run dev` - Start development server (http://localhost:3000)  
+- `npm run build` - Build for production
+- `npm run preview` - Preview production build
+
+## Git Conventions
+Use Conventional Commits for all commit messages and PR titles:
+- `feat: add question voting feature`
+- `fix: resolve SSE reconnection issue`
+- `docs: update API documentation`
+
+## Architecture
+Nuxt 4 application for live Q&A events deployed on Netlify. Users join events, submit questions, vote, and see real-time presence indicators.
+
+**Tech Stack:**
+- Nuxt 4 + Vue 3 + Tailwind CSS
+- Netlify (Edge Functions on Deno)
+- Netlify Blobs storage
+- Server-Sent Events for real-time updates
+- Pinia for state management
+
+**Key Structure:**
+- `pages/event/[eventId].vue` - Main event interface
+- `stores/questions.ts` - Question state with localStorage persistence  
+- `composables/useSSE.ts` - Real-time SSE client with auto-reconnect
+- `netlify/edge-functions/sse.ts` - SSE server on Deno
+- `utils/shared-storage.ts` - Storage utilities (works in both Node.js + Deno)
+
+**Data Flow:**
+HTTP POST → API → Netlify Blobs → SSE broadcast. Questions stored as JSON arrays with atomic writes using ETags to prevent race conditions.
+
+**Code Style:**
+- Vue 3 Composition API with `<script setup>`
+- TypeScript throughout (strict mode enabled)
+- Tailwind for styling, no custom CSS classes
+- Pinia stores for state management
+
+**Testing & Quality:**
+No test framework configured. Verify functionality manually using development server.
+
+**Critical Considerations:**
+- All storage operations must work in both Node.js and Deno environments
+- Use atomic writes with ETags for concurrent safety - see existing patterns in `shared-storage.ts`
+- SSE connections auto-reconnect, ensure server-side cleanup handles disconnections
+- User persistence relies on localStorage - handle SSR/client hydration carefully
